@@ -1,18 +1,41 @@
 const express = require("express");
+try {
+  require('dotenv').config();
+} catch (err) {
+  console.warn('dotenv not found; falling back to environment variables. Install with: npm install dotenv');
+}
+const connectDB = require("./config/database");
+const User = require("./models/user");
 
 const app = express();
-console.log("Hello");
-const PORT = 3000;
+const PORT = process.env.PORT || 8000;
 
-app.use("/test",(req,res)=>{
-  res.end("test server");
+app.post("/signup", async (req, res) => {
+  const userObj = {
+    firstName:"Anushka",
+    lastName:"Sharma",
+    emailId:"anushka123@gmail.com",
+    password:"anushka@123"
+  }
+
+  const user = new User(userObj);
+  try {
+    await user.save();
+    res.send("User added successfully..!");
+  } catch (err) {
+    res.status(400).send("Error saving the user");
+  }
 })
-app.use("/",(req,res)=>{
-  res.end("Hello from the server");
-})
 
 
 
-app.listen(PORT,()=>{
-  console.log(`app is successfully listening on port 3000`)
-});
+connectDB()
+  .then(() => {
+    console.log("Database connected successfully");
+    app.listen(PORT, () => {
+      console.log(`app is successfully listening on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Database can not be connected", err);
+  });
