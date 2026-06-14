@@ -20,7 +20,22 @@ const validateEditProfileData = (req)=>{
   return isEditAllowed;
 }
 
+const validateEditProjectData = (req)=>{
+  const ALLOWED_UPDATES = [
+    "title",
+    "description",
+    "techStack",
+    "gitHubUrl",
+    "liveUrl",
+    "images",
+  ];
+
+  const isEditAllowed = Object.keys(req.body).every(field=>ALLOWED_UPDATES.includes(field));
+  return isEditAllowed;
+}
+
 module.exports = {
   validateSignup,
   validateEditProfileData,
+  validateEditProjectData,
 }

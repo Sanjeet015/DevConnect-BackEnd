@@ -20,7 +20,7 @@ userRouter.get("/user/request/received",userAuth,async(req,res)=>{
     res.json({message:"data fetched successfully",data:connectionRequest});
 
   } catch (err) {
-    res.status(500).send("ERROR: "+err.message);
+    res.status(400).send("ERROR: "+err.message);
   }
 })
 userRouter.get("/user/connection",userAuth,async(req,res)=>{
@@ -46,7 +46,7 @@ userRouter.get("/user/connection",userAuth,async(req,res)=>{
     res.json({message:"connection fetched successfully",data});
 
   } catch (err) {
-    res.status(500).send("ERROR: "+err.message);
+    res.status(400).send("ERROR: "+err.message);
   }
 })
 
@@ -85,7 +85,35 @@ userRouter.get("/user/feed",userAuth,async(req,res)=>{
     res.json({data:users});
 
   } catch (err) {
-    res.status(500).send("ERROR: ",err.message);
+    res.status(400).send("ERROR: ",err.message);
+  }
+})
+
+userRouter.delete("/user/connection/:userId",userAuth,async(req,res)=>{
+  try {
+    const loggedInUser = req.user;
+    const userIdToUnfriend = req.params.userId;
+
+    const friendship = await ConnectionRequest.findOne({
+      $or: [
+        { fromUserId: loggedInUser._id, toUserId: userIdToUnfriend },
+        { fromUserId: userIdToUnfriend, toUserId: loggedInUser._id }
+      ],
+      status: "Accepted",
+    });
+
+    if (!friendship) {
+      return res.status(404).json({ message: "User is not in your connections" });
+    }
+
+    const data = await ConnectionRequest.deleteOne({
+    _id:friendship._id
+    })
+
+    res.json({message:"User removed from your connection",data});
+
+  } catch (err) {
+    res.status(400).send("ERROR: "+err.message);
   }
 })
 

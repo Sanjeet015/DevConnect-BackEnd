@@ -62,7 +62,7 @@ authRouter.post("/logout",async(req,res)=>{
     });
     res.send("Logged out successfully");
   } catch (err) {
-    res.status(500).send("ERROR: "+err.message);
+    res.status(400).send("ERROR: "+err.message);
   }
 })
 
