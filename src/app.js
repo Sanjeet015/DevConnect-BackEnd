@@ -15,7 +15,10 @@ const connectDB = require("./config/database");
 const { initializeSocket } = require("./utils/socket");
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 8000;
+
+// Trust reverse proxy (Nginx, PM2, Cloudflare, etc.) to get correct IP for rate limiting
+app.set("trust proxy", 1);
 
 // Security headers
 app.use(helmet());
@@ -25,16 +28,29 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://13.211.128.168"
 ];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  const isLocal = origin.startsWith("http://localhost:") || 
+                  origin.startsWith("http://127.0.0.1:") || 
+                  origin === "http://localhost" || 
+                  origin === "http://127.0.0.1";
+  if (isLocal) return true;
+  
+  const cleanOrigin = origin.replace(/\/$/, "");
+  return allowedOrigins.some(o => o.replace(/\/$/, "") === cleanOrigin);
+};
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Not allowed by CORS: ${origin}`));
     }
-
-    callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
 }));

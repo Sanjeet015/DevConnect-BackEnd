@@ -18,21 +18,34 @@ const parseCookies = (cookieString) => {
   }, {});
 };
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://13.211.128.168"
+];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  const isLocal = origin.startsWith("http://localhost:") || 
+                  origin.startsWith("http://127.0.0.1:") || 
+                  origin === "http://localhost" || 
+                  origin === "http://127.0.0.1";
+  if (isLocal) return true;
+  
+  const cleanOrigin = origin.replace(/\/$/, "");
+  return allowedOrigins.some(o => o.replace(/\/$/, "") === cleanOrigin);
+};
+
 const initializeSocket = (server) => {
   io = new Server(server, {
     cors: {
-      // Mirror the same dynamic origin logic used by HTTP CORS in app.js
       origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        const isLocal =
-          origin.startsWith("http://localhost:") ||
-          origin.startsWith("http://127.0.0.1:") ||
-          origin === "http://localhost" ||
-          origin === "http://127.0.0.1";
-        if (isLocal) {
+        if (isOriginAllowed(origin)) {
           callback(null, true);
         } else {
-          callback(new Error("Not allowed by CORS"));
+          callback(new Error(`Not allowed by CORS: ${origin}`));
         }
       },
       credentials: true,
