@@ -15,26 +15,28 @@ const connectDB = require("./config/database");
 const { initializeSocket } = require("./utils/socket");
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT;
 
 // Security headers
 app.use(helmet());
 
 // CORS configuration
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://13.211.128.168"
+];
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    const isLocal = origin.startsWith("http://localhost:") || 
-                    origin.startsWith("http://127.0.0.1:") || 
-                    origin === "http://localhost" || 
-                    origin === "http://127.0.0.1";
-    if (isLocal) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+
+    callback(new Error("Not allowed by CORS"));
   },
-  credentials: true
+  credentials: true,
 }));
 
 app.use(express.json());
