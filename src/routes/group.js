@@ -2,6 +2,7 @@ const express = require("express");
 const Group = require('../models/group');
 const GroupMembers = require('../models/groupMembers');
 const ConnectionRequest = require('../models/connectionRequest');
+const GroupMessage = require('../models/groupMessage');
 const {userAuth} = require("../middleware/auth");
 const mongoose = require('mongoose')
 
@@ -291,7 +292,7 @@ groupRouter.patch("/group/:groupId/make-admin/:userId", userAuth, async (req, re
     const groupId = req.params.groupId;
     const userId = req.params.userId;
 
-    // 1. Validate ObjectIDs first
+    
     if (!mongoose.Types.ObjectId.isValid(groupId)) {
       return res.status(400).json({ message: "Invalid group id" });
     }
@@ -299,7 +300,7 @@ groupRouter.patch("/group/:groupId/make-admin/:userId", userAuth, async (req, re
       return res.status(400).json({ message: "Invalid user id" });
     }
 
-    // 2. Fetch the requester's permissions first to save database performance overhead
+    
     const requesterMembership = await GroupMembers.findOne({
       groupId,
       userId: requesterId,
@@ -309,7 +310,7 @@ groupRouter.patch("/group/:groupId/make-admin/:userId", userAuth, async (req, re
       return res.status(403).json({ message: "Unauthorized access: Only the group owner can assign admins" });
     }
 
-    // 3. Fetch the target user's membership safely *before* checking roles
+    
     const targetMembership = await GroupMembers.findOne({
       groupId,
       userId,
@@ -319,7 +320,7 @@ groupRouter.patch("/group/:groupId/make-admin/:userId", userAuth, async (req, re
       return res.status(404).json({ message: "User is not a member of the group" });
     }
 
-    // 4. Run conditional checks against target roles cleanly
+    
     if (targetMembership.role === "owner") {
       return res.status(400).json({ message: "Owner cannot be modified or promoted" });
     }
@@ -328,7 +329,7 @@ groupRouter.patch("/group/:groupId/make-admin/:userId", userAuth, async (req, re
       return res.status(400).json({ message: "User is already an admin" });
     }
 
-    // 5. Commit updates securely
+    
     targetMembership.role = "admin";
     await targetMembership.save();
 
@@ -623,4 +624,118 @@ groupRouter.delete("/group/:groupId", userAuth, async (req, res) => {
   }
 });
 
-module.exports = groupRouter
+groupRouter.get("/group/:groupId/messages", userAuth, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { groupId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    if (!mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ message: "Invalid group id" });
+    }
+
+    const membership = await GroupMembers.findOne({ groupId, userId });
+    if (!membership) {
+      return res.status(403).json({ message: "Unauthorized access: You must be a group member to read messages" });
+    }
+
+    const messages = await GroupMessage.find({ groupId })
+      .populate("senderId", "firstName lastName photoUrl")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const totalMessages = await GroupMessage.countDocuments({ groupId });
+    const hasMore = skip + messages.length < totalMessages;
+
+    const data = messages.reverse().map((msg) => ({
+      id: msg._id,
+      text: msg.text,
+      createdAt: msg.createdAt,
+      isMine: msg.senderId._id.toString() === userId.toString(),
+      sender: msg.senderId
+        ? {
+            id: msg.senderId._id,
+            name: `${msg.senderId.firstName} ${msg.senderId.lastName}`,
+            photoUrl: msg.senderId.photoUrl,
+          }
+        : null,
+    }));
+
+    res.json({
+      message: "Messages fetched successfully",
+      data,
+      pagination: {
+        page,
+        limit,
+        hasMore,
+        totalMessages,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ message: "ERROR: " + err.message });
+  }
+});
+
+groupRouter.post("/group/:groupId/message", userAuth, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { groupId } = req.params;
+    const { text } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ message: "Invalid group id" });
+    }
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ message: "Message text is required" });
+    }
+
+    const membership = await GroupMembers.findOne({ groupId, userId });
+    if (!membership) {
+      return res.status(403).json({ message: "Unauthorized access: You must be a group member to send messages" });
+    }
+
+    const message = await GroupMessage.create({
+      groupId,
+      senderId: userId,
+      text: text.trim(),
+    });
+
+    await message.populate("senderId", "firstName lastName photoUrl");
+
+    const response = {
+      id: message._id,
+      text: message.text,
+      createdAt: message.createdAt,
+      isMine: true,
+      sender: {
+        id: message.senderId._id,
+        name: `${message.senderId.firstName} ${message.senderId.lastName}`,
+        photoUrl: message.senderId.photoUrl,
+      },
+    };
+
+    try {
+      const { broadcastToRoom } = require("../utils/socket");
+      broadcastToRoom(groupId.toString(), "receive_group_message", {
+        ...response,
+        chatId: groupId.toString(),
+        isMine: false,
+      });
+    } catch (socketErr) {
+      console.error("Socket group broadcast failed:", socketErr.message);
+    }
+
+    res.json({
+      message: "Message sent successfully",
+      data: response,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "ERROR: " + err.message });
+  }
+});
+
+module.exports = groupRouter;

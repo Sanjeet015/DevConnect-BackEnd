@@ -5,6 +5,9 @@ const Chat = require('../models/chat');
 const User = require('../models/user');
 const Message = require('../models/message');
 const {userAuth} = require('../middleware/auth');
+const Group = require('../models/group');
+const GroupMembers = require('../models/groupMembers');
+const GroupMessage = require('../models/groupMessage');
 
 const chatRouter = express.Router();
 
@@ -76,7 +79,6 @@ chatRouter.get("/chat/conversations", userAuth, async (req, res) => {
 
     const chatIds = chats.map(c => c._id);
     
-    // Fetch unread message counts for all active chats in a single aggregate query
     const unreadAgg = await Message.aggregate([
       {
         $match: {
@@ -93,7 +95,6 @@ chatRouter.get("/chat/conversations", userAuth, async (req, res) => {
       }
     ]);
 
-    // Create a hashmap of chat ID -> unread count for O(1) lookups
     const unreadMap = new Map();
     unreadAgg.forEach(item => {
       unreadMap.set(item._id.toString(), item.count);
@@ -135,11 +136,62 @@ chatRouter.get("/chat/conversations", userAuth, async (req, res) => {
       0
     );
 
+    let groupConversations = [];
+    try {
+      const groupMemberships = await GroupMembers.find({ userId: requesterId }).select("groupId");
+      const userGroupIds = groupMemberships.map((m) => m.groupId).filter(Boolean);
+
+      const activeGroups = await GroupMessage.aggregate([
+        { $match: { groupId: { $in: userGroupIds } } },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: "$groupId",
+            lastMessage: { $first: "$text" },
+            updatedAt: { $first: "$createdAt" },
+          },
+        },
+      ]);
+
+      const activeGroupIds = activeGroups.map(ag => ag._id);
+      const groupsDetails = await Group.find({ _id: { $in: activeGroupIds } });
+      const groupsMap = new Map(groupsDetails.map(g => [g._id.toString(), g]));
+
+      groupConversations = activeGroups.map((ag) => {
+        const groupInfo = groupsMap.get(ag._id.toString());
+        if (!groupInfo) return null;
+        return {
+          chatId: ag._id.toString(),
+          isGroup: true,
+          group: {
+            _id: groupInfo._id,
+            name: groupInfo.name,
+            description: groupInfo.description
+          },
+          user: {
+            _id: ag._id.toString(),
+            firstName: "[Group]",
+            lastName: groupInfo.name,
+            photoUrl: "https://images.unsplash.com/photo-1607799279861-4dd421887fb3?w=150", 
+          },
+          lastMessage: ag.lastMessage,
+          unreadCount: 0,
+          updatedAt: ag.updatedAt,
+        };
+      }).filter(Boolean);
+    } catch (groupErr) {
+      console.error("Error gathering active group messages:", groupErr.message);
+    }
+
+    const combinedConversations = [...data, ...groupConversations].sort(
+      (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+    );
+
     res.json({
       message: "Chats fetched successfully",
       totalUnreadChats,
       totalUnreadMessages,
-      data,
+      data: combinedConversations,
     });
   } catch (err) {
     res.status(400).json({
@@ -307,7 +359,7 @@ chatRouter.post("/chat/message", userAuth, async (req, res) => {
       }
     };
 
-    // Broadcast real-time message event via Socket.IO
+    
     try {
       const { broadcastToRoom } = require("../utils/socket");
       broadcastToRoom(chatId.toString(), "receive_message", {

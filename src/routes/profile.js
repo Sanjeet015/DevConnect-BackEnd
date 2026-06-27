@@ -27,12 +27,12 @@ profileRouter.patch("/profile/update",userAuth,async (req,res)=>{
     const loggedInUser = req.user;
 
     const {age} = req.body;
-    // Guard: only validate age when it was explicitly provided in the request
+    
     if(age !== undefined && (age > 100 || age < 14)){
       throw new Error("Age should be in the range of 14 to 100");
     }
 
-    // Trim string fields before saving to prevent whitespace-padded names
+    
     const trimFields = ["firstName", "lastName", "about", "gender", "photoUrl"];
     trimFields.forEach(key => {
       if (req.body[key] && typeof req.body[key] === "string") {
@@ -87,7 +87,7 @@ profileRouter.patch("/profile/password",userAuth,async(req,res)=>{
     const hashedPassword = await bcrypt.hash(newPassword,10);
 
     loggedInUser.password = hashedPassword;
-    // Invalidate all active sessions by clearing the stored refresh token
+    
     loggedInUser.refreshToken = undefined;
 
     await loggedInUser.save();

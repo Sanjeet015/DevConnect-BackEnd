@@ -11,8 +11,8 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const http = require("http");
 const mongoose = require("mongoose");
+const http = require('http');
 
 const connectDB = require("./config/database");
 const { initializeSocket } = require("./utils/socket");
@@ -20,15 +20,15 @@ const { initializeSocket } = require("./utils/socket");
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Trust proxy (for Nginx / AWS / PM2)
+
 app.set("trust proxy", 1);
 
-// Security headers
+
 app.use(helmet());
 
-// =========================
-// CORS CONFIG (FIXED)
-// =========================
+
+
+
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -42,7 +42,7 @@ const normalize = (origin) => origin?.replace(/\/$/, "");
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow server-to-server / curl / postman
+      
       if (!origin) return callback(null, true);
 
       const requestOrigin = normalize(origin);
@@ -56,21 +56,21 @@ app.use(
       }
 
       console.log("❌ CORS blocked origin:", origin);
-      return callback(null, false); // safe reject
+      return callback(null, false); 
     },
     credentials: true,
   })
 );
 
-// =========================
-// BODY PARSERS
-// =========================
+
+
+
 app.use(express.json());
 app.use(cookieParser());
 
-// =========================
-// NO-SQL INJECTION PROTECTION
-// =========================
+
+
+
 const sanitizeMongoOperators = (obj) => {
   if (Array.isArray(obj)) {
     obj.forEach(sanitizeMongoOperators);
@@ -92,9 +92,9 @@ app.use((req, _res, next) => {
   next();
 });
 
-// =========================
-// RATE LIMITING
-// =========================
+
+
+
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === "production" ? 200 : 10000,
@@ -117,9 +117,9 @@ app.use("/login", authLimiter);
 app.use("/signup", authLimiter);
 app.use(generalLimiter);
 
-// =========================
-// ROUTES
-// =========================
+
+
+
 const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
 const requestRouter = require("./routes/request");
@@ -136,9 +136,9 @@ app.use("/", projectRouter);
 app.use("/", groupRouter);
 app.use("/", chatRouter);
 
-// =========================
-// SERVER + SOCKET
-// =========================
+
+
+
 const server = http.createServer(app);
 initializeSocket(server);
 
@@ -148,9 +148,9 @@ server.listen(PORT, () => {
   console.log(`Server is successfully listening on port ${PORT}`);
 });
 
-// =========================
-// DATABASE CONNECTION
-// =========================
+
+
+
 connectDB()
   .then(() => {
     console.log("Database connected successfully");

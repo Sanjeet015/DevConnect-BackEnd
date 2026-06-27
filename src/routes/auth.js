@@ -32,11 +32,11 @@ authRouter.post("/signup", async (req, res) => {
     
     res.cookie("token", accessToken, {
       ...cookieOptions,
-      maxAge: 15 * 60 * 1000 // 15 mins
+      maxAge: 15 * 60 * 1000 
     });
     res.cookie("refreshToken", refreshToken, {
       ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000 
     });
 
     res.json({message:"Signup successfull",data:savedUser});
@@ -65,11 +65,11 @@ authRouter.post("/login", async (req,res)=>{
       
       res.cookie("token", accessToken, {
         ...cookieOptions,
-        maxAge: 15 * 60 * 1000 // 15 mins
+        maxAge: 15 * 60 * 1000 
       });
       res.cookie("refreshToken", refreshToken, {
         ...cookieOptions,
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000 
       });
 
       res.json({message:"Login successfull",data:user});
@@ -126,7 +126,7 @@ authRouter.post("/logout",async(req,res)=>{
           await user.save();
         }
       } catch (err) {
-        // ignore validation errors on logout
+        
       }
     }
 

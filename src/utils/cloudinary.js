@@ -1,7 +1,7 @@
 const cloudinary = require("cloudinary").v2;
 const multer = require("multer");
 
-// Configure Cloudinary SDK
+
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -10,10 +10,10 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && proce
   });
 }
 
-// Multer memory storage configuration (keeps file in buffer)
+
 const storage = multer.memoryStorage();
 
-// File filter to restrict uploads to images
+
 const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith("image/")) {
     cb(null, true);
@@ -26,20 +26,16 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 5 * 1024 * 1024, 
   },
 });
 
-/**
- * Uploads a file buffer to Cloudinary
- * @param {Buffer} fileBuffer 
- * @returns {Promise<string>} Secure URL of uploaded image
- */
+
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
     if (!process.env.CLOUDINARY_CLOUD_NAME) {
       console.warn("CLOUDINARY_CLOUD_NAME is not set. Falling back to default Unsplash developer avatar.");
-      // Fallback to random high-quality developer photo on Unsplash
+      
       const fallbacks = [
         "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&auto=format&fit=crop&q=80",
         "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80",

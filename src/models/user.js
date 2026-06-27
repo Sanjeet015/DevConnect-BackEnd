@@ -3,7 +3,7 @@ const validator = require("validator");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const SECRET_KEY = process.env.SECRET_KEY;
-// Separate secret for refresh tokens — add REFRESH_TOKEN_SECRET to your .env for production
+
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || process.env.SECRET_KEY;
 
 const userSchema = new mongoose.Schema({

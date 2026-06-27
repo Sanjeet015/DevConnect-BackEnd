@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 
 let io = null;
-const onlineUsers = new Map(); // userId string -> Set of socket IDs
+const onlineUsers = new Map(); 
 
 const parseCookies = (cookieString) => {
   if (!cookieString) return {};
@@ -55,7 +55,7 @@ const initializeSocket = (server) => {
     pingTimeout: 60000,
   });
 
-  // Socket middleware for JWT verification
+  
   io.use(async (socket, next) => {
     try {
       const cookieHeader = socket.handshake.headers.cookie;
@@ -85,22 +85,22 @@ const initializeSocket = (server) => {
   io.on("connection", (socket) => {
     const userId = socket.user._id.toString();
 
-    // Track online user
+    
     if (!onlineUsers.has(userId)) {
       onlineUsers.set(userId, new Set());
     }
     onlineUsers.get(userId).add(socket.id);
 
-    // Join personal user room
+    
     socket.join(userId);
 
-    // Broadcast user online status
+    
     io.emit("status_change", {
       userId,
       status: "online",
     });
 
-    // Room join (chatId or groupId)
+    
     socket.on("join_room", (roomId) => {
       socket.join(roomId);
     });
@@ -109,9 +109,9 @@ const initializeSocket = (server) => {
       socket.leave(roomId);
     });
 
-    // Typing status events
+    
     socket.on("typing_start", (data) => {
-      // data: { roomId, userName }
+      
       socket.to(data.roomId).emit("typing_status", {
         roomId: data.roomId,
         userId,
@@ -135,7 +135,7 @@ const initializeSocket = (server) => {
         userSockets.delete(socket.id);
         if (userSockets.size === 0) {
           onlineUsers.delete(userId);
-          // Broadcast user offline status
+          
           io.emit("status_change", {
             userId,
             status: "offline",
@@ -155,12 +155,12 @@ const getIo = () => {
   return io;
 };
 
-// Check if a user is currently online
+
 const isUserOnline = (userId) => {
   return onlineUsers.has(userId.toString());
 };
 
-// Broadcast a message event
+
 const broadcastToRoom = (roomId, event, data) => {
   if (io) {
     io.to(roomId).emit(event, data);

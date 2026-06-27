@@ -11,7 +11,7 @@ requestRouter.post("/request/send/:status/:toUserId",userAuth,async(req,res)=>{
     const status = req.params.status;
     const toUserId = req.params.toUserId;
 
-    // Validate ObjectId before hitting the DB to avoid CastError
+    
     if (!mongoose.Types.ObjectId.isValid(toUserId)) {
       return res.status(400).json({ message: "Invalid user ID" });
     }
@@ -38,7 +38,7 @@ requestRouter.post("/request/send/:status/:toUserId",userAuth,async(req,res)=>{
       return res.status(400).json({message:"Connection request already exists"});
     }
 
-    // Save the request as-is — Interested stays pending until User B accepts from Requests page
+    
     const connectionRequest = new ConnectionRequest({ fromUserId, toUserId, status });
     const data = await connectionRequest.save();
 
