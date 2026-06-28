@@ -136,6 +136,14 @@ app.use("/", projectRouter);
 app.use("/", groupRouter);
 app.use("/", chatRouter);
 
+app.get("/", (req, res) => {
+  res.json({
+    status: "success",
+    message: "DevConnect Backend is running successfully!",
+    environment: process.env.NODE_ENV || "development",
+  });
+});
+
 
 
 
