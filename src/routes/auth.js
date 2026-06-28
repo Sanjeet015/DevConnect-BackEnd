@@ -9,7 +9,7 @@ const authRouter = express.Router();
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
 };
 
 authRouter.post("/signup", async (req, res) => {

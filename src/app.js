@@ -47,9 +47,9 @@ app.use(
 
       const requestOrigin = normalize(origin);
 
-      const isAllowed = allowedOrigins.some(
-        (o) => normalize(o) === requestOrigin
-      );
+      const isAllowed =
+        allowedOrigins.some((o) => normalize(o) === requestOrigin) ||
+        /\.vercel\.app$/.test(requestOrigin);
 
       if (isAllowed) {
         return callback(null, true);
