@@ -68,6 +68,21 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+// Database connection middleware for Serverless (Vercel) environments
+app.use(async (req, res, next) => {
+  if (mongoose.connection.readyState === 1) {
+    return next();
+  }
+  try {
+    await connectDB();
+    console.log("Database connected successfully via middleware");
+    next();
+  } catch (err) {
+    console.error("Database connection failed in middleware:", err.message);
+    res.status(500).json({ error: "Database connection failed: " + err.message });
+  }
+});
+
 
 
 
@@ -159,33 +174,35 @@ if (!process.env.VERCEL) {
 }
 
 
-connectDB()
-  .then(() => {
-    console.log("Database connected successfully");
-  })
-  .catch(async (err) => {
-    console.error("Primary DB connection failed:", err.message);
+if (!process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      console.log("Database connected successfully");
+    })
+    .catch(async (err) => {
+      console.error("Primary DB connection failed:", err.message);
 
-    if (
-      process.env.MONGO_URI !== "mongodb://127.0.0.1:27017/devConnect"
-    ) {
-      console.log("Trying local MongoDB fallback...");
+      if (
+        process.env.MONGO_URI !== "mongodb://127.0.0.1:27017/devConnect"
+      ) {
+        console.log("Trying local MongoDB fallback...");
 
-      try {
-        await mongoose.connect(
-          "mongodb://127.0.0.1:27017/devConnect"
-        );
-        console.log("Connected to local MongoDB fallback!");
-      } catch (localErr) {
-        console.error(
-          "Local MongoDB fallback also failed:",
-          localErr.message
-        );
+        try {
+          await mongoose.connect(
+            "mongodb://127.0.0.1:27017/devConnect"
+          );
+          console.log("Connected to local MongoDB fallback!");
+        } catch (localErr) {
+          console.error(
+            "Local MongoDB fallback also failed:",
+            localErr.message
+          );
+          console.warn("Server running without database.");
+        }
+      } else {
         console.warn("Server running without database.");
       }
-    } else {
-      console.warn("Server running without database.");
-    }
-  });
+    });
+}
 
 module.exports = app;
