@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: devconnect-be
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: MONGO_URI
+        sync: false
+      - key: SECRET_KEY
+        sync: false

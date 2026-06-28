@@ -144,11 +144,11 @@ initializeSocket(server);
 
 mongoose.set("bufferCommands", false);
 
-server.listen(PORT, () => {
-  console.log(`Server is successfully listening on port ${PORT}`);
-});
-
-
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`Server is successfully listening on port ${PORT}`);
+  });
+}
 
 
 connectDB()
@@ -179,3 +179,5 @@ connectDB()
       console.warn("Server running without database.");
     }
   });
+
+module.exports = app;
