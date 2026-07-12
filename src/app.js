@@ -33,32 +33,40 @@ app.use(helmet());
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  "http://13.211.128.168",
-  "http://13.211.128.168:5173",
+  "https://dev-connect-front-end-5m1x.vercel.app",
 ];
 
-const normalize = (origin) => origin?.replace(/\/$/, "");
+if (process.env.FRONTEND_URL) {
+  const customOrigins = process.env.FRONTEND_URL.split(",")
+    .map((url) => url.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+  
+  customOrigins.forEach((url) => {
+    if (!allowedOrigins.includes(url)) {
+      allowedOrigins.push(url);
+    }
+  });
+}
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      
+      // Allow requests with no origin (like mobile apps, postman, or curl)
       if (!origin) return callback(null, true);
 
-      const requestOrigin = normalize(origin);
-
-      const isAllowed =
-        allowedOrigins.some((o) => normalize(o) === requestOrigin) ||
-        /\.vercel\.app$/.test(requestOrigin);
+      const requestOrigin = origin.trim().replace(/\/$/, "");
+      const isAllowed = allowedOrigins.some((o) => o.replace(/\/$/, "") === requestOrigin);
 
       if (isAllowed) {
         return callback(null, true);
       }
 
-      console.log("❌ CORS blocked origin:", origin);
-      return callback(null, false); 
+      console.warn("❌ CORS blocked origin:", origin);
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
   })
 );
 
@@ -159,8 +167,24 @@ app.get("/", (req, res) => {
   });
 });
 
-
-
+// Express Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error("Unhandled Error:", err);
+  
+  const statusCode = err.status || err.statusCode || 500;
+  
+  if (!res.headersSent) {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin.replace(/\/$/, ""))) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    }
+    res.status(statusCode).json({
+      message: err.message || "An unexpected error occurred",
+      error: process.env.NODE_ENV === "production" ? undefined : err.stack,
+    });
+  }
+});
 
 const server = http.createServer(app);
 initializeSocket(server);

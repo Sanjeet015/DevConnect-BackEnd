@@ -21,22 +21,24 @@ const parseCookies = (cookieString) => {
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  "http://13.211.128.168",
-  "http://13.211.128.168:5173",
+  "https://dev-connect-front-end-5m1x.vercel.app",
 ];
+
 if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
+  const customOrigins = process.env.FRONTEND_URL.split(",")
+    .map((url) => url.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+  
+  customOrigins.forEach((url) => {
+    if (!allowedOrigins.includes(url)) {
+      allowedOrigins.push(url);
+    }
+  });
 }
 
 const isOriginAllowed = (origin) => {
   if (!origin) return true;
-  const isLocal = origin.startsWith("http://localhost:") || 
-                  origin.startsWith("http://127.0.0.1:") || 
-                  origin === "http://localhost" || 
-                  origin === "http://127.0.0.1";
-  if (isLocal) return true;
-  
-  const cleanOrigin = origin.replace(/\/$/, "");
+  const cleanOrigin = origin.trim().replace(/\/$/, "");
   return allowedOrigins.some(o => o.replace(/\/$/, "") === cleanOrigin);
 };
 
@@ -69,7 +71,8 @@ const initializeSocket = (server) => {
         return next(new Error("Authentication error: Token not found"));
       }
 
-      const decodedObj = jwt.verify(token, process.env.SECRET_KEY);
+      const secretKey = process.env.JWT_SECRET || process.env.SECRET_KEY;
+      const decodedObj = jwt.verify(token, secretKey);
       const user = await User.findById(decodedObj._id).select("-password");
       if (!user) {
         return next(new Error("Authentication error: User not found"));

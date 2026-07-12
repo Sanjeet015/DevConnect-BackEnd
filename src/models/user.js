@@ -2,9 +2,9 @@ const mongoose = require('mongoose');
 const validator = require("validator");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const SECRET_KEY = process.env.SECRET_KEY;
+const SECRET_KEY = process.env.JWT_SECRET || process.env.SECRET_KEY;
 
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || process.env.SECRET_KEY;
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || SECRET_KEY;
 
 const userSchema = new mongoose.Schema({
   firstName:{
@@ -30,7 +30,14 @@ const userSchema = new mongoose.Schema({
   },
   password:{
     type:String,
-    required:true,
+    required:function() {
+      return !this.googleId;
+    },
+  },
+  googleId:{
+    type:String,
+    unique:true,
+    sparse:true
   },
   age:{
     type:Number,
