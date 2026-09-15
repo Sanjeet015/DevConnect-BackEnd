@@ -708,6 +708,7 @@ groupRouter.post("/group/:groupId/message", userAuth, async (req, res) => {
 
     const response = {
       id: message._id,
+      chatId: groupId.toString(),
       text: message.text,
       createdAt: message.createdAt,
       isMine: true,
@@ -720,7 +721,13 @@ groupRouter.post("/group/:groupId/message", userAuth, async (req, res) => {
 
     try {
       const { broadcastToRoom } = require("../utils/socket");
-      broadcastToRoom(groupId.toString(), "receive_group_message", {
+      const groupMembers = await GroupMembers.find({ groupId }).select("userId");
+      const memberUserIds = groupMembers
+        .map((m) => m.userId?.toString())
+        .filter((id) => id && id !== userId.toString());
+
+      const targetRooms = [groupId.toString(), ...memberUserIds];
+      broadcastToRoom(targetRooms, "receive_group_message", {
         ...response,
         chatId: groupId.toString(),
         isMine: false,

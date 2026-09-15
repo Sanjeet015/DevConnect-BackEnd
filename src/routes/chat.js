@@ -348,6 +348,7 @@ chatRouter.post("/chat/message", userAuth, async (req, res) => {
 
     const response = {
       id: message._id,
+      chatId: chatId.toString(),
       text: message.text,
       createdAt: message.createdAt,
       isMine: true,
@@ -359,11 +360,20 @@ chatRouter.post("/chat/message", userAuth, async (req, res) => {
       }
     };
 
-    
     try {
       const { broadcastToRoom } = require("../utils/socket");
-      broadcastToRoom(chatId.toString(), "receive_message", {
+      const recipient = chat.participants.find(
+        (p) => p.toString() !== userId.toString()
+      );
+      
+      const targetRooms = [chatId.toString()];
+      if (recipient) {
+        targetRooms.push(recipient.toString());
+      }
+
+      broadcastToRoom(targetRooms, "receive_message", {
         ...response,
+        chatId: chatId.toString(),
         isMine: false
       });
     } catch (socketErr) {

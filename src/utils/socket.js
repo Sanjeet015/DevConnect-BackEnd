@@ -61,18 +61,44 @@ const initializeSocket = (server) => {
   io.use(async (socket, next) => {
     try {
       const cookieHeader = socket.handshake.headers.cookie;
-      if (!cookieHeader) {
-        return next(new Error("Authentication error: No cookies found"));
-      }
+      const cookies = cookieHeader ? parseCookies(cookieHeader) : {};
+      const token = cookies.token || socket.handshake.auth?.token || socket.handshake.query?.token;
+      const refreshToken = cookies.refreshToken || socket.handshake.auth?.refreshToken || socket.handshake.query?.refreshToken;
 
-      const cookies = parseCookies(cookieHeader);
-      const token = cookies.token;
-      if (!token) {
-        return next(new Error("Authentication error: Token not found"));
+      if (!token && !refreshToken) {
+        return next(new Error("Authentication error: No authentication tokens found"));
       }
 
       const secretKey = process.env.JWT_SECRET || process.env.SECRET_KEY;
-      const decodedObj = jwt.verify(token, secretKey);
+      const refreshSecret = process.env.REFRESH_TOKEN_SECRET || secretKey;
+
+      let decodedObj = null;
+      let authError = null;
+
+      // 1. Try to verify the access token
+      if (token) {
+        try {
+          decodedObj = jwt.verify(token, secretKey);
+        } catch (err) {
+          authError = err;
+        }
+      }
+
+      // 2. If access token verification failed or was missing, try the refresh token
+      if (!decodedObj && refreshToken) {
+        try {
+          decodedObj = jwt.verify(refreshToken, refreshSecret);
+          authError = null; // Clear the previous error since refresh token is valid
+        } catch (err) {
+          authError = err;
+        }
+      }
+
+      // 3. If neither token was successfully verified, throw an error
+      if (!decodedObj) {
+        return next(new Error("Authentication error: " + (authError ? authError.message : "Tokens not found")));
+      }
+
       const user = await User.findById(decodedObj._id).select("-password");
       if (!user) {
         return next(new Error("Authentication error: User not found"));
@@ -97,7 +123,9 @@ const initializeSocket = (server) => {
     
     socket.join(userId);
 
-    
+    // Send the list of currently online users to this specific client
+    socket.emit("online_users", Array.from(onlineUsers.keys()));
+
     io.emit("status_change", {
       userId,
       status: "online",
@@ -166,7 +194,11 @@ const isUserOnline = (userId) => {
 
 const broadcastToRoom = (roomId, event, data) => {
   if (io) {
-    io.to(roomId).emit(event, data);
+    if (Array.isArray(roomId)) {
+      io.to(roomId).emit(event, data);
+    } else {
+      io.to(roomId).emit(event, data);
+    }
   }
 };
 
