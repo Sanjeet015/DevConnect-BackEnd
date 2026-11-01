@@ -12,7 +12,11 @@ const parseCookies = (cookieString) => {
     if (parts.length >= 2) {
       const key = parts[0];
       const val = parts.slice(1).join('=');
-      res[key] = decodeURIComponent(val);
+      try {
+        res[key] = decodeURIComponent(val);
+      } catch (err) {
+        res[key] = val;
+      }
     }
     return res;
   }, {});
@@ -114,50 +118,70 @@ const initializeSocket = (server) => {
   io.on("connection", (socket) => {
     const userId = socket.user._id.toString();
 
-    
+    const wasAlreadyOnline = onlineUsers.has(userId) && onlineUsers.get(userId).size > 0;
+
     if (!onlineUsers.has(userId)) {
       onlineUsers.set(userId, new Set());
     }
     onlineUsers.get(userId).add(socket.id);
 
-    
     socket.join(userId);
 
     // Send the list of currently online users to this specific client
     socket.emit("online_users", Array.from(onlineUsers.keys()));
 
-    io.emit("status_change", {
-      userId,
-      status: "online",
+    // Broadcast online status to everyone if this is the user's first active connection
+    if (!wasAlreadyOnline) {
+      io.emit("status_change", {
+        userId,
+        status: "online",
+      });
+    }
+
+    // Allow client to query the list of online users on demand
+    socket.on("get_online_users", () => {
+      socket.emit("online_users", Array.from(onlineUsers.keys()));
     });
 
-    
+    // Allow client to query a single user's online status
+    socket.on("check_user_status", (targetUserId) => {
+      if (!targetUserId) return;
+      const targetIdStr = targetUserId.toString();
+      const isOnline = onlineUsers.has(targetIdStr) && onlineUsers.get(targetIdStr).size > 0;
+      socket.emit("status_change", {
+        userId: targetIdStr,
+        status: isOnline ? "online" : "offline",
+      });
+    });
+
     socket.on("join_room", (roomId) => {
-      socket.join(roomId);
+      if (roomId) socket.join(roomId.toString());
     });
 
     socket.on("leave_room", (roomId) => {
-      socket.leave(roomId);
+      if (roomId) socket.leave(roomId.toString());
     });
 
-    
     socket.on("typing_start", (data) => {
-      
-      socket.to(data.roomId).emit("typing_status", {
-        roomId: data.roomId,
-        userId,
-        userName: data.userName,
-        isTyping: true,
-      });
+      if (data && data.roomId) {
+        socket.to(data.roomId.toString()).emit("typing_status", {
+          roomId: data.roomId.toString(),
+          userId,
+          userName: data.userName,
+          isTyping: true,
+        });
+      }
     });
 
     socket.on("typing_stop", (data) => {
-      socket.to(data.roomId).emit("typing_status", {
-        roomId: data.roomId,
-        userId,
-        userName: data.userName,
-        isTyping: false,
-      });
+      if (data && data.roomId) {
+        socket.to(data.roomId.toString()).emit("typing_status", {
+          roomId: data.roomId.toString(),
+          userId,
+          userName: data.userName,
+          isTyping: false,
+        });
+      }
     });
 
     socket.on("disconnect", () => {
@@ -186,11 +210,15 @@ const getIo = () => {
   return io;
 };
 
-
 const isUserOnline = (userId) => {
-  return onlineUsers.has(userId.toString());
+  if (!userId) return false;
+  const idStr = userId.toString();
+  return onlineUsers.has(idStr) && onlineUsers.get(idStr).size > 0;
 };
 
+const getOnlineUsers = () => {
+  return Array.from(onlineUsers.keys());
+};
 
 const broadcastToRoom = (roomId, event, data) => {
   if (io) {
@@ -206,5 +234,6 @@ module.exports = {
   initializeSocket,
   getIo,
   isUserOnline,
+  getOnlineUsers,
   broadcastToRoom,
 };

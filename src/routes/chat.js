@@ -8,6 +8,7 @@ const {userAuth} = require('../middleware/auth');
 const Group = require('../models/group');
 const GroupMembers = require('../models/groupMembers');
 const GroupMessage = require('../models/groupMessage');
+const { isUserOnline, getOnlineUsers } = require('../utils/socket');
 
 const chatRouter = express.Router();
 
@@ -64,6 +65,18 @@ chatRouter.post("/chat/start/:userId",userAuth,async(req,res)=>{
   }
 })
 
+chatRouter.get("/chat/online-users", userAuth, (req, res) => {
+  try {
+    const onlineList = getOnlineUsers ? getOnlineUsers() : [];
+    res.json({
+      message: "Online users fetched successfully",
+      data: onlineList,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "ERROR: " + err.message });
+  }
+});
+
 chatRouter.get("/chat/conversations", userAuth, async (req, res) => {
   try {
     const requesterId = req.user._id;
@@ -109,6 +122,8 @@ chatRouter.get("/chat/conversations", userAuth, async (req, res) => {
 
       const unreadCount = unreadMap.get(chat._id.toString()) || 0;
 
+      const isOnline = isUserOnline(otherUser._id);
+
       return {
         chatId: chat._id,
         user: {
@@ -121,6 +136,7 @@ chatRouter.get("/chat/conversations", userAuth, async (req, res) => {
           about: otherUser.about,
           skills: otherUser.skills,
         },
+        isOnline,
         lastMessage: chat.lastMessage || null,
         unreadCount,
         updatedAt: chat.updatedAt,
